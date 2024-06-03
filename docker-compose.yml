@@ -1,0 +1,43 @@
+services:
+  domserver:
+    container_name: domserver
+    image: domjudge/domserver
+    restart: unless-stopped
+    ports:
+      - 8001:80
+    links:
+      - 'dj-mariadb:mariadb'
+    env_file: database.secret
+    environment:
+      - MYSQL_HOST=mariadb
+      - MYSQL_USER=domjudge
+      - MYSQL_DATABASE=domjudge
+      - CONTAINER_TIMEZONE=Asia/Shanghai
+
+  dj-mariadb:
+    container_name: dj-mariadb
+    image: mariadb:latest
+    restart: unless-stopped
+    volumes:
+      - ./database:/var/lib/mysql
+    env_file: database.secret
+    environment:
+      - MYSQL_USER=domjudge
+      - MYSQL_DATABASE=domjudge
+      - CONTAINER_TIMEZONE=Asia/Shanghai
+    command: --max-connections=1024 --max-allowed-packet=1G --innodb-log-file-size=512M
+
+  judgehost:
+    image: 'domjudge/judgehost'
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    env_file: judgehost.secret
+    environment:
+      - CONTAINER_TIMEZONE=Asia/Shanghai
+    deploy:
+      mode: replicated
+      replicas: 4
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
